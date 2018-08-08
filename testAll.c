@@ -30,6 +30,7 @@ void streamingDoAStreamLength (Short lgK, Long n) {
   Long trialNo = 0;
   printf ("%d %lld", lgK, n); fflush (stdout);
   enum flavorType flavor;
+  Long c = 0;
   Short offset;
   double avgC = 0.0;
   double avgIconEst = 0.0;
@@ -51,6 +52,7 @@ void streamingDoAStreamLength (Short lgK, Long n) {
     avgIconEst += getIconEstimate (lgK, sketch->numCoupons);
     avgHIPEst  += sketch->hipEstAccum;
 
+    c = sketch->numCoupons;
     assert (sketch->numCoupons == simple->numCoupons);
 
     U64 * matrix = bitMatrixOfSketch (sketch);
@@ -60,8 +62,8 @@ void streamingDoAStreamLength (Short lgK, Long n) {
     fm85Free (sketch);
     simple85Free (simple);
   }
-  printf (" (%d %d %.3f %.3f %.3f) okay\n", 
-	  (int) flavor, (int) offset, // these are from the final trial
+  printf (" (%lld %d %d %.3f %.3f %.3f) okay\n", 
+	  c, (int) flavor, (int) offset, // these are from the final trial
 	  avgC / ((double) streamingNumTrials),
 	  avgIconEst / ((double) streamingNumTrials),
 	  avgHIPEst / ((double) streamingNumTrials) );

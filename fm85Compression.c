@@ -411,10 +411,11 @@ void lowLevelUncompressPairs (U32 * pairArray,         // output
 
  // measured in 32-bit words
 Long safeLengthForCompressedPairBuf (Long k, Long numPairs) {
-  assert (numPairs >= 0);
+  if (numPairs == 0) return (1LL); // topic for discussion
+  assert (numPairs > 0);
   Long ybits = k + numPairs;
   Long xbits = 12 * numPairs;
-  Long bits = xbits + ybits + 12; // 12 bits of padding
+  Long bits = xbits + ybits + 11;
   return (divideLongsRoundingUp(bits, 32));
 }
 

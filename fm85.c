@@ -64,6 +64,8 @@ enum flavorType determineFlavor (Short lgK, Long c) {
   else             return (SLIDING);  // 27K/8 <= C
 }
 
+// Note: the <= occurs with equality except SPARSE-vs-HYBRID for K = 2^4
+
 enum flavorType determineSketchFlavor (FM85 * self) {
   return (determineFlavor(self->lgK, self->numCoupons));
 }
@@ -150,6 +152,13 @@ void fm85Free (FM85 * self) {
 
 /*******************************************************/
 
+// Warning: this is called in several places, including during the
+// transitional moments during which sketch invariants involving
+// flavor and offset are out of whack and in fact we are re-imposing
+// them. Therefore it cannot rely on determineFlavor() or
+// determineCorrectOffset(). Instead it interprets the low level data
+// structures "as is".
+
 // This produces a full-size k-by-64 bit matrix from any Live sketch.
 
 U64 * bitMatrixOfSketch (FM85 * self) {
@@ -161,8 +170,8 @@ U64 * bitMatrixOfSketch (FM85 * self) {
   U64 * matrix = (U64 *) malloc ((size_t) (k * sizeof(U64)));
   assert (matrix != NULL);
 
-// Fill the matrix with "default" rows in which the "left zone" is filled with ones.
-// This is essential for the O(k) time cost (as opposed to O(C)).
+// Fill the matrix with default rows in which the "early zone" is filled with ones.
+// This is essential for the routine's O(k) time cost (as opposed to O(C)).
   U64 defaultRow = (1ULL << offset) - 1;
   for (i = 0; i < k; i++) { matrix[i] = defaultRow; } 
 
@@ -172,7 +181,9 @@ U64 * bitMatrixOfSketch (FM85 * self) {
 
   U8 * window = self->slidingWindow;
   if (window != NULL) { // In other words, we are in window mode, not sparse mode.
-    for (i = 0; i < k; i++) { matrix[i] |= (((U64) window[i]) << offset); } // set the window bits
+    for (i = 0; i < k; i++) { // set the window bits, trusting the sketch's current offset.
+      matrix[i] |= (((U64) window[i]) << offset);
+    }
   }
 
   u32Table * table = self->surprisingValueTable;
@@ -184,7 +195,10 @@ U64 * bitMatrixOfSketch (FM85 * self) {
     if (rowCol != ALL32BITS) {
       Short col = (Short) (rowCol & 63);
       Long  row = (Long)  (rowCol >> 6);
-      matrix[row] ^= (1ULL << col); // Flip the bit (which could change it from 1 to 0)
+      // Flip the specified matrix bit from its default value.
+      // In the "early" zone the bit changes from 1 to 0.
+      // In the "late" zone the bit changes from 0 to 1.
+      matrix[row] ^= (1ULL << col); 
     }
   }
 
@@ -205,7 +219,7 @@ void promoteEmptyToSparse (FM85 * self) {
 void promoteSparseToWindowed (FM85 * self) {
   Long k = (1LL << self->lgK);
   Long c32 = self->numCoupons << 5;
-  assert (c32 == 3 * k); // c = 3K/32
+  assert (c32 == 3 * k || (self->lgK == 4 && c32 > 3 * k));
   Long i;
 
   U8 * window = (U8 *) malloc ((size_t) (k * sizeof(U8)));
