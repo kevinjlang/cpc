@@ -20,11 +20,16 @@ SIMPLE85 * simple85Make (Short lgK);
 
 void simple85Free (SIMPLE85 * self);
 
-void simple85RowColUpdate (SIMPLE85 * self, U32 rowCol);
+void simple85Update (SIMPLE85 * self, U64 hash0, U64 hash1);
 
 /*******************************************************/
 
-void fm85DualUpdate (FM85 * sk1, FM85 * sk2); // for testing
+void getTwoRandomHashes (U64 twoHashes[]);
+
+// supports different k values for the two sketches
+void fm85DualUpdate (FM85 * sk1, FM85 * sk2, U64 hash0, U64 hash1);
+
+/*******************************************************/
 
 void compareByteArrays(U8 * arr1, U8 * arr2, Long arrlen);
 void compareU32Arrays(U32 * arr1, U32 * arr2, Long arrlen);

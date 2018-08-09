@@ -4,6 +4,27 @@
 #include "fm85Testing.h"
 
 /*******************************************************/
+
+#include "mycity.h"
+
+static const U64 golden64 = 0x9e3779b97f4a7c13ULL;  // the golden ratio
+static const U64 oddnum64 = 0xe0685c665a8eb357ULL;  // an odd random number
+
+U64 counter0 =  35538947; // some arbitrary
+U64 counter1 = 796576885; // starting values
+
+void getTwoRandomHashes (U64 twoHashes[]) {
+  twoHashes[0] = MyCity64(counter0); counter0 += golden64;
+  twoHashes[1] = MyCity64(counter1); counter1 += oddnum64;
+}
+
+// U32 generateRandomRowCol (Short lgK) {
+//   U64 hash0 = MyCity64(counter_0); counter_0 += golden64;
+//   U64 hash1 = MyCity64(counter_1); counter_1 += oddnum64;
+//   return (rowColFromTwoHashes(hash0, hash1, lgK));
+// }
+
+/*******************************************************/
 // This simple (but naive) implementation of FM85 sketches can
 // provide ground truth for testing the fancy implementation.
 
@@ -37,12 +58,16 @@ void simple85RowColUpdate (SIMPLE85 * self, U32 rowCol) {
   self->bitMatrix[row] = newPattern;
 }
 
+void simple85Update (SIMPLE85 * self, U64 hash0, U64 hash1) {
+  U32 rowCol = rowColFromTwoHashes (hash0, hash1, self->lgK);  
+  simple85RowColUpdate (self, rowCol);
+}
+
 /*******************************************************/
 /*******************************************************/
 
-void fm85DualUpdate (FM85 * sk1, FM85 * sk2) { // useful for testing
-  //  assert (sk1->lgK == sk2->lgK);
-  U32 rowCol = generateRandomRowCol ((Short) 26);
+void fm85DualUpdate (FM85 * sk1, FM85 * sk2, U64 hash0, U64 hash1) {
+  U32 rowCol = rowColFromTwoHashes (hash0, hash1, (Short) 26); // notice the 26
   U32 mask1 = (((1 << sk1->lgK) - 1) << 6) | 63;
   U32 mask2 = (((1 << sk2->lgK) - 1) << 6) | 63;
   fm85RowColUpdate (sk1, rowCol & mask1);

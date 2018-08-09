@@ -35,15 +35,16 @@ void streamingDoAStreamLength (Short lgK, Long n) {
   double avgC = 0.0;
   double avgIconEst = 0.0;
   double avgHIPEst = 0.0;
+  U64 twoHashes[2]; // allocated on the stack
 
   for (trialNo = 0; trialNo < streamingNumTrials; trialNo++) {
     FM85 * sketch = fm85Make (lgK);
     SIMPLE85 * simple = simple85Make (lgK);
     Long i;
     for (i = 0; i < n; i++) {
-      U32 rowCol = generateRandomRowCol (lgK);
-      fm85RowColUpdate (sketch, rowCol);
-      simple85RowColUpdate (simple, rowCol);
+      getTwoRandomHashes (twoHashes);
+      fm85Update     (sketch, twoHashes[0], twoHashes[1]);
+      simple85Update (simple, twoHashes[0], twoHashes[1]);
     }
 
     flavor = determineSketchFlavor (sketch);
@@ -93,6 +94,7 @@ void streamingMain (int argc, char ** argv)
 void compressionDoAStreamLength (Short lgK, Long n) {
   Long k = (1ULL << lgK);
   Long minKN = (k < n ? k : n);
+  U64 twoHashes[2]; // allocated on the stack
 #ifdef TIMING
   Long numSketches = 20000000 / minKN; // was 5 million
 #else
@@ -114,7 +116,8 @@ void compressionDoAStreamLength (Short lgK, Long n) {
     FM85 * sketch = fm85Make (lgK);
     streamSketches[sketchIndex] = sketch;
     for (i = 0; i < n; i++) { 
-      fm85Update (sketch); 
+      getTwoRandomHashes (twoHashes);
+      fm85Update (sketch, twoHashes[0], twoHashes[1]);
     }
   }
   after1 = clock ();
@@ -194,6 +197,7 @@ void compressionMain (int argc, char ** argv) {
 
 void testMerging (Short lgKm, Short lgKa, Short lgKb, Long nA, Long nB) {
   UG85 * ugM = ug85Make (lgKm);
+  U64 twoHashes[2]; // allocated on the stack
 
   Short lgKd = lgKm;
   if (lgKa < lgKd && nA != 0) lgKd = lgKa;
@@ -206,8 +210,14 @@ void testMerging (Short lgKm, Short lgKa, Short lgKb, Long nA, Long nB) {
 
   Long i = 0;
 
-  for (i = 0; i < nA; i++) { fm85DualUpdate (skA, skD); }
-  for (i = 0; i < nB; i++) { fm85DualUpdate (skB, skD); }
+  for (i = 0; i < nA; i++) {
+    getTwoRandomHashes (twoHashes);
+    fm85DualUpdate (skA, skD, twoHashes[0], twoHashes[1]);
+  }
+  for (i = 0; i < nB; i++) {
+    getTwoRandomHashes (twoHashes);
+    fm85DualUpdate (skB, skD, twoHashes[0], twoHashes[1]);
+  }
 
   ug85MergeInto (ugM, skA);
   ug85MergeInto (ugM, skB);

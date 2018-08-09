@@ -40,8 +40,6 @@ Boolean u32TableMaybeDelete (u32Table * self, U32 item);
 
 /*******************************************************/
 
-// void u32TableMustInsert (u32Table * self, U32 item);
-
 // this one slightly breaks the abstraction boundary
 
 u32Table * makeU32TableFromPairsArray (U32 * pairs, Long numPairs, Short sketchLgK);
@@ -54,17 +52,12 @@ void printU32Array (U32 * array, Long arrayLength);
 
 /*******************************************************/
 
-void u32TokudaShellSort(U32 a[], Long l, Long r);
-
-// void u32KnuthShellSort11(U32 a[], Long l, Long r);
+// void u32TokudaShellSort(U32 a[], Long l, Long r);
 
 void u32KnuthShellSort3(U32 a[], Long l, Long r);
 
-// void u32InsertionSort(U32 a[], Long l, Long r);
-
 void introspectiveInsertionSort(U32 a[], Long l, Long r);
 
-// void slowerIntrospectiveInsertionSort(U32 a[], Long l, Long r);
 
 /*******************************************************/
 

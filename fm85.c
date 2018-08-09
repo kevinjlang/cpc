@@ -10,23 +10,15 @@
 
 /*******************************************************/
 
-static const U64 golden64 = 0x9e3779b97f4a7c13ULL;  // the golden ratio
-static const U64 oddnum64 = 0xe0685c665a8eb357ULL;  // an odd random number
-
-U64 counter_0 = 35538947; // some arbitrary
-U64 counter_1 = 796576885; // starting values
-
-U32 generateRandomRowCol (Short lgK) {
+U32 rowColFromTwoHashes (U64 hash0, U64 hash1, Short lgK) {
   assert (lgK <= 26);
   Long k = (1LL << lgK);
-  U64 hashed_0 = MyCity64(counter_0); counter_0 += golden64;
-  U64 hashed_1 = MyCity64(counter_1); counter_1 += oddnum64;
-  Short col = countLeadingZerosInUnsignedLong (hashed_0); // 0 <= col <= 64
+  Short col = countLeadingZerosInUnsignedLong (hash0); // 0 <= col <= 64
   if (col > 63) col = 63;                    // clip so that 0 <= col <= 63
-  Long row = hashed_1 & (k - 1);
+  Long row = hash1 & (k - 1);
   U32 rowCol = (U32) ((row << 6) | col);
   // To avoid the hash table's "empty" value, we change the row of the following pair.
-  // This case is extremely unlikely, but we might as well handle it correctly.
+  // This case is extremely unlikely, but we might as well handle it.
   if (rowCol == ALL32BITS) { rowCol ^= (1 << 6); } 
   return (rowCol);
 }
@@ -453,18 +445,9 @@ void fm85RowColUpdate (FM85 * self, U32 rowCol) {
   else { updateWindowed (self, rowCol); }
 }
 
-void fm85Update (FM85 * self) { // this version is for testing convenience
-  U32 rowCol = generateRandomRowCol (self->lgK);
+
+void fm85Update (FM85 * self, U64 hash0, U64 hash1) {
+  U32 rowCol = rowColFromTwoHashes (hash0, hash1, self->lgK);
   fm85RowColUpdate (self, rowCol);
 }
-
-//  Short col = (Short) (rowCol & 63);
-//  if (col < self->firstInterestingColumn) { return; } // important speed optimization
-//  if (self->isCompressed) { FATAL_ERROR ("Cannot update a compressed sketch."); }
-//  Long c = self->numCoupons;
-//  if (c == 0) { promoteEmptyToSparse (self); }
-//  Long k = (1LL << self->lgK);
-//  if ((c << 5) < 3*k) { updateSparse (self, rowCol); }
-//  else { updateWindowed (self, rowCol); }
-// }
 

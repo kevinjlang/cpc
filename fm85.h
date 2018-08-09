@@ -62,16 +62,19 @@ FM85 * fm85Copy (FM85 * self);
 
 void fm85Free (FM85 * sketch);
 
-void fm85Update (FM85 * sketch);
+void fm85Update (FM85 * sketch, U64 hash0, U64 hash1);
 
 double getHIPEstimate (FM85 * sketch);
 
 // getIconEstimate() is defined in a separate file.
 
 /*******************************************************/
-// These routines are internal.
 
-U32 generateRandomRowCol (Short lgK);
+// The following is used during testing, and is basically package private.
+U32 rowColFromTwoHashes (U64 hash0, U64 hash1, Short lgK);
+
+/*******************************************************/
+// These routines are internal.
 
 void fm85RowColUpdate (FM85 * sketch, U32 rowCol);
 
@@ -82,12 +85,12 @@ Short determineCorrectOffset (Short lgK, Long c);
 
 U64 * bitMatrixOfSketch (FM85 * self);
 
-void promoteEmptyToSparse (FM85 * self);
-void promoteSparseToWindowed (FM85 * self);
-void modifyOffsetAfterUpdate (FM85 * self);
-
-void updateSparse   (FM85 * self, U32 rowCol);
-void updateWindowed (FM85 * self, U32 rowCol);
+// these are only used internally
+// void promoteEmptyToSparse (FM85 * self);
+// void promoteSparseToWindowed (FM85 * self);
+// void modifyOffset (FM85 * self, Short newOffset);
+// void updateSparse   (FM85 * self, U32 rowCol);
+// void updateWindowed (FM85 * self, U32 rowCol);
 
 
 /*******************************************************/
