@@ -1,0 +1,35 @@
+
+This directory contains three ocaml programs that generate the data tables 
+which are compiled into the C implementation of CPC sketches.
+
+----------------------------------------------------------------
+1. generateHuffmanCodes.ml creates (16 + 6 + 1) length-limited Huffman codes.
+
+ocamlopt -o generateHuffmanCodes columnProbabilities.ml generateHuffmanCodes.ml
+./generateHuffmanCodes > raw-huffman-codes
+
+----------------------------------------------------------------
+2. generatePermutationsForSLIDING.ml creates 16 permutations of the columns.
+   It is run by loading into the ocaml top level.
+
+$ ~/ocaml-4.03.0/bin/ocaml
+#print_length 10000;;
+#use "columnProbabilities.ml";;
+#use "generatePermutationsForSLIDING.ml";;
+
+----------------------------------------------------------------
+3. generateIconPolynomials.ml calculates the polynomial coefficients for the Icon Estimator.
+   This cannot be run without compiling and installing the program "multi_reading_linsolve.c",
+   which has a dependency on GSL (the Gnu Scientific Library).
+
+gcc -Wall -pedantic -Iinclude -Llib -o multi_reading_linsolve multi_reading_linsolve.c -lgsl -lgslcblas
+cp multi_reading_linsolve ~/bin
+~/ocaml-4.03.0/bin/ocamlopt -o generateIconPolynomials unix.cmxa columnProbabilities.ml myfit.ml generateIconPolynomials.ml
+./generateIconPolynomials > raw-icon-polynomials
+
+----------------------------------------------------------------
+The other source code in this directory:
+
+A: columnProbabilities.ml is linked into all three of the above programs.
+B: myfit.ml is linked into generateIconPolynomials.ml
+C: multi_reading_linsolve.c is executed by generateIconPolynomials.ml
