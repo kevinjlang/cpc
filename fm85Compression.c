@@ -6,7 +6,7 @@
 /*********************************/
 // The following material is in a separate file because it is so big.
 
-#include "compressionData.c"
+#include "compressionData.data"
 
 /***************************************************************/
 /***************************************************************/
