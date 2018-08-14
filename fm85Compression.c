@@ -500,6 +500,7 @@ void uncompressTheWindow (FM85 * target, FM85 * source) {
 /***************************************************************/
 
 void compressTheSurprisingValues (FM85 * target, FM85 * source, U32 * pairs, Long numPairs) {
+  assert (numPairs > 0);
   target->numCompressedSurprisingValues = numPairs;  
   Long k = (1LL << source->lgK);
   Long pairBufLen = safeLengthForCompressedPairBuf (k,numPairs);
@@ -527,6 +528,7 @@ U32 * uncompressTheSurprisingValues (FM85 * source) {
   assert (source->isCompressed == 1);
   Long k = (1LL << source->lgK);  
   Long numPairs = source->numCompressedSurprisingValues;
+  assert (numPairs > 0);
   U32 * pairs = (U32 *) malloc ((size_t) numPairs * sizeof(U32));
   assert (pairs != NULL);
   Long numBaseBits = golombChooseNumberOfBaseBits (k + numPairs, numPairs);
@@ -680,22 +682,29 @@ void compressPinnedFlavor (FM85 * target, FM85 * source) {
 
   compressTheWindow (target, source);
 
-  Long numPairs = 0; 
-  U32 * pairs = u32TableUnwrappingGetItems (source->surprisingValueTable, &numPairs);
+  Long numPairs = source->surprisingValueTable->numItems;
+  //  if (numPairs == 0) {
+  //    fprintf (stderr,"A"); fflush (stderr);
+  //  }
+  if (numPairs > 0) {
+    Long chkNumPairs;
+    U32 * pairs = u32TableUnwrappingGetItems (source->surprisingValueTable, &chkNumPairs);
+    assert (chkNumPairs == numPairs);
 
-  // Here we subtract 8 from the column indices.  Because they are stored in the low 6 bits 
-  // of each rowCol pair, and because no column index is less than 8 for a "Pinned" sketch,
-  // I believe we can simply subtract 8 from the pairs themselves.
+    // Here we subtract 8 from the column indices.  Because they are stored in the low 6 bits 
+    // of each rowCol pair, and because no column index is less than 8 for a "Pinned" sketch,
+    // I believe we can simply subtract 8 from the pairs themselves.
 
-  Long i; // shift the columns over by 8 positions before compressing (because of the window)
-  for (i = 0; i < numPairs; i++) { 
-    assert ((pairs[i] & 63) >= 8);
-    pairs[i] -= 8; 
+    Long i; // shift the columns over by 8 positions before compressing (because of the window)
+    for (i = 0; i < numPairs; i++) { 
+      assert ((pairs[i] & 63) >= 8);
+      pairs[i] -= 8; 
+    }
+
+    introspectiveInsertionSort(pairs, 0, numPairs-1);
+    compressTheSurprisingValues (target, source, pairs, numPairs);
+    free (pairs);
   }
-
-  introspectiveInsertionSort(pairs, 0, numPairs-1);
-  compressTheSurprisingValues (target, source, pairs, numPairs);
-  free (pairs);
   return;
 }
 
@@ -704,21 +713,24 @@ void compressPinnedFlavor (FM85 * target, FM85 * source) {
 void uncompressPinnedFlavor (FM85 * target, FM85 * source) {
   assert (source->compressedWindow != NULL);
   uncompressTheWindow (target, source);
-
-  assert (source->compressedSurprisingValues != NULL);
-  U32 * pairs = uncompressTheSurprisingValues (source);
   Long numPairs = source->numCompressedSurprisingValues;
-
-  Long i; // undo the compressor's 8-column shift
-  for (i = 0; i < numPairs; i++) { 
-    assert ((pairs[i] & 63) < 56);
-    pairs[i] += 8; 
+  if (numPairs == 0) {
+    target->surprisingValueTable = u32TableMake (2, 6 + source->lgK);
+    //    fprintf (stderr,"B"); fflush (stderr);
   }
-
-  u32Table * table = makeU32TableFromPairsArray (pairs, numPairs, source->lgK);
-  target->surprisingValueTable = table;
-
-  free (pairs);
+  else {
+    assert (numPairs > 0);
+    assert (source->compressedSurprisingValues != NULL);
+    U32 * pairs = uncompressTheSurprisingValues (source);
+    Long i; // undo the compressor's 8-column shift
+    for (i = 0; i < numPairs; i++) { 
+      assert ((pairs[i] & 63) < 56);
+      pairs[i] += 8; 
+    }
+    u32Table * table = makeU32TableFromPairsArray (pairs, numPairs, source->lgK);
+    target->surprisingValueTable = table;
+    free (pairs);
+  }
   return;
 }
 
@@ -730,35 +742,43 @@ void compressSlidingFlavor (FM85 * target, FM85 * source) {
 
   compressTheWindow (target, source);
 
-  Long numPairs = 0; 
-  U32 * pairs = u32TableUnwrappingGetItems (source->surprisingValueTable, &numPairs);
+  Long numPairs = source->surprisingValueTable->numItems;
+  //  if (numPairs == 0) {
+  //    fprintf (stderr,"C"); fflush (stderr);
+  //  }
 
-  // Here we apply a complicated transformation to the column indices, which
-  // changes the implied ordering of the pairs, so we must do it before sorting.
+  if (numPairs > 0) {
+    Long chkNumPairs;
+    U32 * pairs = u32TableUnwrappingGetItems (source->surprisingValueTable, &chkNumPairs);
+    assert (chkNumPairs == numPairs);
 
-  Short pseudoPhase = determinePseudoPhase (source->lgK, source->numCoupons); // NB
-  assert (pseudoPhase < 16);
-  U8 * permutation = columnPermutationsForEncoding[pseudoPhase];
+    // Here we apply a complicated transformation to the column indices, which
+    // changes the implied ordering of the pairs, so we must do it before sorting.
 
-  Short offset = source->windowOffset;
-  assert (offset > 0 && offset <= 56);
+    Short pseudoPhase = determinePseudoPhase (source->lgK, source->numCoupons); // NB
+    assert (pseudoPhase < 16);
+    U8 * permutation = columnPermutationsForEncoding[pseudoPhase];
 
-  Long i; 
-  for (i = 0; i < numPairs; i++) { 
-    U32 rowCol = pairs[i];
-    Long  row = (Long)  (rowCol >> 6);
-    Short col = (Short) (rowCol & 63);
-    // first rotate the columns into a canonical configuration: new = ((old - (offset+8)) + 64) mod 64
-    col = (col + 56 - offset) & 63;
-    assert (col >= 0 && col < 56);
-    // then apply the permutation
-    col = permutation[col];
-    pairs[i] = (U32) ((row << 6) | col);
+    Short offset = source->windowOffset;
+    assert (offset > 0 && offset <= 56);
+
+    Long i; 
+    for (i = 0; i < numPairs; i++) { 
+      U32 rowCol = pairs[i];
+      Long  row = (Long)  (rowCol >> 6);
+      Short col = (Short) (rowCol & 63);
+      // first rotate the columns into a canonical configuration: new = ((old - (offset+8)) + 64) mod 64
+      col = (col + 56 - offset) & 63;
+      assert (col >= 0 && col < 56);
+      // then apply the permutation
+      col = permutation[col];
+      pairs[i] = (U32) ((row << 6) | col);
+    }
+
+    introspectiveInsertionSort(pairs, 0, numPairs-1);
+    compressTheSurprisingValues (target, source, pairs, numPairs);
+    free (pairs);
   }
-
-  introspectiveInsertionSort(pairs, 0, numPairs-1);
-  compressTheSurprisingValues (target, source, pairs, numPairs);
-  free (pairs);
   return;
 }
 
@@ -768,33 +788,40 @@ void uncompressSlidingFlavor (FM85 * target, FM85 * source) {
   assert (source->compressedWindow != NULL);
   uncompressTheWindow (target, source);
 
-  assert (source->compressedSurprisingValues != NULL);
-  U32 * pairs = uncompressTheSurprisingValues (source);
   Long numPairs = source->numCompressedSurprisingValues;
-
-  Short pseudoPhase = determinePseudoPhase (source->lgK, source->numCoupons); // NB
-  assert (pseudoPhase < 16);
-  U8 * permutation = columnPermutationsForDecoding[pseudoPhase];
-
-  Short offset = source->windowOffset;
-  assert (offset > 0 && offset <= 56);
-
-  Long i; 
-  for (i = 0; i < numPairs; i++) { 
-    U32 rowCol = pairs[i];
-    Long  row = (Long)  (rowCol >> 6);
-    Short col = (Short) (rowCol & 63);
-    // first undo the permutation
-    col = permutation[col];
-    // then undo the rotation: old = (new + (offset+8)) mod 64
-    col = (col + (offset+8)) & 63;
-    pairs[i] = (U32) ((row << 6) | col);
+  if (numPairs == 0) {
+    target->surprisingValueTable = u32TableMake (2, 6 + source->lgK);
+    //    fprintf (stderr,"D"); fflush (stderr);
   }
+  else {
+    assert (numPairs > 0);
+    assert (source->compressedSurprisingValues != NULL);
+    U32 * pairs = uncompressTheSurprisingValues (source);
 
-  u32Table * table = makeU32TableFromPairsArray (pairs, numPairs, source->lgK);
-  target->surprisingValueTable = table;
+    Short pseudoPhase = determinePseudoPhase (source->lgK, source->numCoupons); // NB
+    assert (pseudoPhase < 16);
+    U8 * permutation = columnPermutationsForDecoding[pseudoPhase];
 
-  free (pairs);
+    Short offset = source->windowOffset;
+    assert (offset > 0 && offset <= 56);
+
+    Long i; 
+    for (i = 0; i < numPairs; i++) { 
+      U32 rowCol = pairs[i];
+      Long  row = (Long)  (rowCol >> 6);
+      Short col = (Short) (rowCol & 63);
+      // first undo the permutation
+      col = permutation[col];
+      // then undo the rotation: old = (new + (offset+8)) mod 64
+      col = (col + (offset+8)) & 63;
+      pairs[i] = (U32) ((row << 6) | col);
+    }
+
+    u32Table * table = makeU32TableFromPairsArray (pairs, numPairs, source->lgK);
+    target->surprisingValueTable = table;
+
+    free (pairs);
+  }
   return;
 }
 
@@ -847,12 +874,12 @@ FM85 * fm85Compress (FM85 * source) {
   case PINNED:  
     compressPinnedFlavor (target, source); 
     assert (target->compressedWindow != NULL);
-    assert (target->compressedSurprisingValues != NULL);
+    //    assert (target->compressedSurprisingValues != NULL);
     break;
   case SLIDING: 
     compressSlidingFlavor(target, source); 
     assert (target->compressedWindow != NULL);
-    assert (target->compressedSurprisingValues != NULL);
+    //    assert (target->compressedSurprisingValues != NULL);
     break;
   default: FATAL_ERROR ("Unknown sketch flavor");
   }

@@ -163,10 +163,18 @@ Long longFloorLog2OfLong (Long x) {
 // returns an integer that is between 
 // zero and ceiling(log_2(k))-1, inclusive
 
-Long golombChooseNumberOfBaseBits (Long k, Long raw_count) {
+// Long oldGolombChooseNumberOfBaseBits (Long k, Long raw_count) {
+//   assert (k >= 1L);
+//   assert (raw_count >= 0L);
+//   Long count = (raw_count == 0L) ? 1L : raw_count;
+//   Long quotient = (k - count) / count; // integer division
+//   if (quotient == 0) return (0);
+//   else return (longFloorLog2OfLong(quotient));
+// }
+
+Long golombChooseNumberOfBaseBits (Long k, Long count) {
   assert (k >= 1L);
-  assert (raw_count >= 0L);
-  Long count = (raw_count == 0L) ? 1L : raw_count;
+  assert (count >= 1L);
   Long quotient = (k - count) / count; // integer division
   if (quotient == 0) return (0);
   else return (longFloorLog2OfLong(quotient));
