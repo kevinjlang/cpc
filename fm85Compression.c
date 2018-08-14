@@ -410,10 +410,22 @@ void lowLevelUncompressPairs (U32 * pairArray,         // output
 // TODO: resolve the 11 bit padding issue (and other related issues).
 
  // measured in 32-bit words
-Long safeLengthForCompressedPairBuf (Long k, Long numPairs) {
-  if (numPairs == 0) return (1LL); // topic for discussion
+// Long oldSafeLengthForCompressedPairBuf (Long k, Long numPairs) {
+//   if (numPairs == 0) return (1LL); // topic for discussion
+//   assert (numPairs > 0);
+//   Long ybits = k + numPairs;
+//   Long xbits = 12 * numPairs;
+//   Long bits = xbits + ybits + 11;
+//   return (divideLongsRoundingUp(bits, 32));
+// }
+
+Long safeLengthForCompressedPairBuf (Long k, Long numPairs, Long numBaseBits) {
   assert (numPairs > 0);
-  Long ybits = k + numPairs;
+  // Long ybits = k + numPairs; // simpler and safer UB
+  // The following tighter UB on ybits is based on page 198 
+  // of the textbook "Managing Gigabytes" by Witten, Moffat, and Bell.
+  // Notice that if numBaseBits == 0 it coincides with (k + numPairs).
+  Long ybits = numPairs * (1LL + numBaseBits) + (k >> numBaseBits);
   Long xbits = 12 * numPairs;
   Long bits = xbits + ybits + 11;
   return (divideLongsRoundingUp(bits, 32));
@@ -503,10 +515,11 @@ void compressTheSurprisingValues (FM85 * target, FM85 * source, U32 * pairs, Lon
   assert (numPairs > 0);
   target->numCompressedSurprisingValues = numPairs;  
   Long k = (1LL << source->lgK);
-  Long pairBufLen = safeLengthForCompressedPairBuf (k,numPairs);
+  Long numBaseBits = golombChooseNumberOfBaseBits (k + numPairs, numPairs);
+  Long pairBufLen = safeLengthForCompressedPairBuf (k, numPairs, numBaseBits);
   U32 * pairBuf = (U32 *) malloc ((size_t) (pairBufLen * sizeof(U32)));
   assert (pairBuf != NULL);
-  Long numBaseBits = golombChooseNumberOfBaseBits (k + numPairs, numPairs);
+
   target->csvLength = lowLevelCompressPairs (pairs, numPairs, numBaseBits, pairBuf);
 
   // At this point we free the unused portion of the compression output buffer.
