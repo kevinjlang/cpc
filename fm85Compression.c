@@ -312,23 +312,27 @@ Long lowLevelCompressPairs (U32 * pairArray,       // input
     predictedRowIndex = rowIndex;
     predictedColIndex = colIndex + 1;
 
-    Long golombLo = yDelta & golombLoMask;
-    Long golombHi = yDelta >> numBaseBits;
-    writeUnary (compressedWords, &nextWordIndex, &bitbuf, &bufbits, golombHi);
-    bitbuf |= golombLo << bufbits;
-    bufbits += numBaseBits;
-    MAYBE_FLUSH_BITBUF(compressedWords,nextWordIndex);
-
     U64 codeInfo = (U64) lengthLimitedUnaryEncodingTable65[xDelta];
     U64 codeVal = codeInfo & 0xfff;
     int codeLen = codeInfo >> 12;    
     bitbuf |= (codeVal << bufbits);
     bufbits += codeLen;
     MAYBE_FLUSH_BITBUF(compressedWords,nextWordIndex);
+
+    Long golombLo = yDelta & golombLoMask;
+    Long golombHi = yDelta >> numBaseBits;
+
+    writeUnary (compressedWords, &nextWordIndex, &bitbuf, &bufbits, golombHi);
+
+    bitbuf |= golombLo << bufbits;
+    bufbits += numBaseBits;
+    MAYBE_FLUSH_BITBUF(compressedWords,nextWordIndex);
   }  
 
-// Pad the bitstream with 11 zero-bits so that the decompressor's 12-bit peek can't overrun its input.
-  bufbits += 11; 
+  // Pad the bitstream so that the decompressor's 12-bit peek can't overrun its input.
+  Long padding = 10LL - numBaseBits; // should be 10LL
+  if (padding < 0) padding = 0;
+  bufbits += padding; 
   MAYBE_FLUSH_BITBUF(compressedWords,nextWordIndex);
 
   if (bufbits > 0) { // We are done encoding now, so we flush the bit buffer.
@@ -359,28 +363,13 @@ void lowLevelUncompressPairs (U32 * pairArray,         // output
   Short predictedColIndex = 0;
 
   // for each pair we need to read:
+  // xDelta (12-bit length-limited unary)
   // yDeltaHi (unary)
   // yDeltaLo (basebits)
-  // xDelta (12-bit length-limited unary)
+
   for (pairIndex = 0; pairIndex < numPairsToDecode; pairIndex++) {
-    Long golombHi = readUnary (compressedWords, &wordIndex, &bitbuf, &bufbits);
 
-    //    if (bufbits < numBaseBits) { // Fill the bitbuf if necessary.
-    //      bitbuf |= (((U64) compressedWords[wordIndex++]) << bufbits);
-    //      bufbits += 32;
-    //    }
-    MAYBE_FILL_BITBUF(compressedWords,wordIndex,numBaseBits); // ensure numBaseBits in bit buffer
-    Long golombLo = bitbuf & golombLoMask;
-    bitbuf >>= numBaseBits;
-    bufbits -= numBaseBits;
-    Long yDelta = (golombHi << numBaseBits) | golombLo;
-
-    //    if (bufbits < 12) { // Prepare for a 12-bit peek into the bitstream.
-    //      bitbuf |= (((U64) compressedWords[wordIndex++]) << bufbits);
-    //      bufbits += 32;
-    //    }
     MAYBE_FILL_BITBUF(compressedWords,wordIndex,12); // ensure 12 bits in bit buffer
-
     int peek12 = bitbuf & 0xfffULL;
     int lookup = lengthLimitedUnaryDecodingTable65[peek12];
     int codeWordLength = lookup >> 8;
@@ -388,14 +377,20 @@ void lowLevelUncompressPairs (U32 * pairArray,         // output
     bitbuf >>= codeWordLength;
     bufbits -= codeWordLength;
 
+    Long golombHi = readUnary (compressedWords, &wordIndex, &bitbuf, &bufbits);
+
+    MAYBE_FILL_BITBUF(compressedWords,wordIndex,numBaseBits); // ensure numBaseBits in bit buffer
+    Long golombLo = bitbuf & golombLoMask;
+    bitbuf >>= numBaseBits;
+    bufbits -= numBaseBits;
+    Long yDelta = (golombHi << numBaseBits) | golombLo;
+
     // Now that we have yDelta and xDelta, we can compute the pair's row and column.
-    
     if (yDelta > 0) { predictedColIndex = 0; }
     Long  rowIndex = predictedRowIndex + yDelta;
     Short colIndex = predictedColIndex + xDelta;
     U32 rowCol = (rowIndex << 6) | colIndex;
     pairArray[pairIndex] = rowCol;
-
     predictedRowIndex = rowIndex;
     predictedColIndex = colIndex + 1;
 
@@ -407,17 +402,6 @@ void lowLevelUncompressPairs (U32 * pairArray,         // output
 
 /***************************************************************/
 /***************************************************************/
-// TODO: resolve the 11 bit padding issue (and other related issues).
-
- // measured in 32-bit words
-// Long oldSafeLengthForCompressedPairBuf (Long k, Long numPairs) {
-//   if (numPairs == 0) return (1LL); // topic for discussion
-//   assert (numPairs > 0);
-//   Long ybits = k + numPairs;
-//   Long xbits = 12 * numPairs;
-//   Long bits = xbits + ybits + 11;
-//   return (divideLongsRoundingUp(bits, 32));
-// }
 
 Long safeLengthForCompressedPairBuf (Long k, Long numPairs, Long numBaseBits) {
   assert (numPairs > 0);
@@ -427,14 +411,23 @@ Long safeLengthForCompressedPairBuf (Long k, Long numPairs, Long numBaseBits) {
   // Notice that if numBaseBits == 0 it coincides with (k + numPairs).
   Long ybits = numPairs * (1LL + numBaseBits) + (k >> numBaseBits);
   Long xbits = 12 * numPairs;
-  Long bits = xbits + ybits + 11;
+  Long padding = 10LL - numBaseBits;
+  if (padding < 0) padding = 0;
+  Long bits = xbits + ybits + padding;
   return (divideLongsRoundingUp(bits, 32));
 }
+
+// Explanation of padding: we write 
+// 1) xdelta (huffman, provides at least 1 bit, requires 12-bit lookahead)
+// 2) ydeltaGolombHi (unary, provides at least 1 bit, requires 8-bit lookahead)
+// 3) ydeltaGolombLo (straight B bits).
+// So the 12-bit lookahead is the tight constraint, but there are at least (2 + B) bits emitted,
+// so we would be safe with max (0, 10 - B) bits of padding at the end of the bitstream.
 
 /***************************************************************/
 
 Long safeLengthForCompressedWindowBuf (Long k) { // measured in 32-bit words
-  Long bits = 12 * k + 11; // 11 bits of padding
+  Long bits = 12 * k + 11; // 11 bits of padding, due to 12-bit lookahead, with 1 bit certainly present.
   return (divideLongsRoundingUp(bits, 32));
 }
 
