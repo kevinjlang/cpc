@@ -34,6 +34,12 @@ Long lowLevelCompressPairs (U32 * pairArray, // input
 			    Long numBaseBits,      // input
 			    U32 * compressedWords); // output
 
+void lowLevelUncompressPairs (U32 * pairArray, // output
+			      Long numPairs, // input
+			      Long numBaseBits,      // input
+			      U32 * compressedWords, // input
+			      Long numCompressedWords); // input
+
 /****************************************/
 
 // This returns the number of compressedWords that were actually used. It is the caller's 
