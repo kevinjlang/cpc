@@ -23,7 +23,6 @@
 
 void makeTheDecodingTables (void); // call this at startup
 
-#ifdef LOW_LEVEL_CRAP
 /****************************************/
 // Here "pairs" refers to row/column pairs that specify 
 // the positions of surprising values in the bit matrix.
@@ -59,7 +58,6 @@ void lowLevelUncompressBytes (U8 * byteArray,         // output
 			      Long numCompressedWords); // input
 
 /****************************************/
-#endif
 
 FM85 * fm85Compress (FM85 * uncompressedSketch); // returns a compressed copy of its input
 
