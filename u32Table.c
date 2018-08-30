@@ -119,6 +119,7 @@ u32Table * makeU32TableFromPairsArray (U32 * pairs, Long numPairs, Short sketchL
   u32Table * table = u32TableMake (lgNumSlots, 6 + sketchLgK); // Already filled with the "Empty" value which is ALL32BITS.
   Long i = 0;
   // Note: there is a possible "snowplow effect" here because the caller is passing in a sorted pairs array.
+  // However, we are starting out with the correct final table size, so the problem might not occur.
   for (i = 0; i < numPairs; i++) {
     u32TableMustInsert (table, pairs[i]);
   }

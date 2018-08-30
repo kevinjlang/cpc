@@ -28,7 +28,7 @@ void doTheTest (void) {
   int i;
   for (i = 0; i < N; i++) {
     getTwoRandomHashes(twoHashes);
-    U32 rand = twoHashes[0] & 0xffdf;
+    U32 rand = twoHashes[0] & 0xffff;   // was 0xffdf;
     pairArray[i] = rand;
   }
   u32KnuthShellSort3(pairArray, 0L, (Long) (N-1));  // unsigned numerical sort

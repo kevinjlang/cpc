@@ -49,12 +49,19 @@ void walkTableUpdatingSketch (FM85 * dest, u32Table * table) {
   Long numSlots = (1LL << table->lgSize); 
   assert (dest->lgK <= 26);
   U32 destMask = (((1 << dest->lgK) - 1) << 6) | 63;  // downsamples when destlgK < srcLgK
-  Long i = 0;
-  for (i = 0; i < numSlots; i++) { 
-    U32 rowCol = slots[i];
+
+  // Using a golden ratio stride fixes the slowplow effect.
+  double golden = 0.6180339887498949025;
+  Long stride = (Long) (golden * ((double) numSlots));
+  assert (stride >= 2);
+  if (stride == ((stride >> 1) << 1)) { stride += 1; }; // force the stride to be odd
+  assert (stride >= 3 && stride < numSlots);
+
+  Long i,j;
+  for (i = 0, j = 0; i < numSlots; i++, j += stride) {
+    j &= (numSlots - 1LL);
+    U32 rowCol = slots[j];
     if (rowCol != ALL32BITS) {
-      // Note: there is a possible "snowplow effect" effect here.
-      // If so, consider using the Golden Ratio trick while walking the source table.
       fm85RowColUpdate (dest, rowCol & destMask); 
     }
   }
@@ -176,6 +183,14 @@ void ug85MergeInto (UG85 * unioner, FM85 * source) {
     assert (unioner->bitMatrix == NULL);
     enum flavorType initialDestFlavor = determineSketchFlavor (unioner->accumulator);
     assert (EMPTY == initialDestFlavor || SPARSE == initialDestFlavor);
+
+    // The following partially fixes the snowplow problem provided that the K's are equal.
+    // A complete fix is coming soon.
+    if (EMPTY == initialDestFlavor && unioner->lgK == source->lgK) { 
+      fm85Free (unioner->accumulator);      
+      unioner->accumulator = fm85Copy(source);
+    }
+
     walkTableUpdatingSketch (unioner->accumulator, source->surprisingValueTable);
     enum flavorType finalDestFlavor = determineSketchFlavor(unioner->accumulator);
     // if the accumulator has graduated beyond sparse, switch to a bitMatrix representation
@@ -265,18 +280,22 @@ FM85 * ug85GetResult (UG85 * unioner) {
   assert (result->slidingWindow == NULL);
   result->slidingWindow = window;
 
-  u32Table * table = u32TableMake (2, 6 + lgK);
+  //  u32Table * table = u32TableMake (2, 6 + lgK); // dynamically growing caused snowplow effect
+  Short newTableSize = lgK - 4; //   K/16; in some cases this will end up being oversized
+  if (newTableSize < 4) newTableSize = 4;
+  u32Table * table = u32TableMake (newTableSize, 6 + lgK); 
   assert (table != NULL);
   assert (result->surprisingValueTable == NULL);
   result->surprisingValueTable = table;
 
   // I believe that the following works even when the offset is zero.
-
   U64 maskForClearingWindow = (0xffULL << offset) ^ ALL64BITS;
   U64 maskForFlippingEarlyZone = (1ULL << offset) - 1;
   U64 allSurprisesORed = 0;
   Long i = 0;
 
+  // The snowplow effect was caused by processing the rows in order,
+  // but we have fixed it by using a sufficiently large hash table.
   for (i = 0; i < k; i++) {
     U64 pattern = matrix[i];
     window[i] = (U8) ((pattern >> offset) & 0xff);
@@ -291,6 +310,8 @@ FM85 * ug85GetResult (UG85 * unioner) {
       assert (isNovel == 1);
     }
   }
+
+  // At this point we could shrink an oversize hash table, but the relative waste isn't very big.
 
   result->firstInterestingColumn = countTrailingZerosInUnsignedLong (allSurprisesORed);
   if (result->firstInterestingColumn > offset) result->firstInterestingColumn = offset; // corner case
