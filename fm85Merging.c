@@ -50,7 +50,7 @@ void walkTableUpdatingSketch (FM85 * dest, u32Table * table) {
   assert (dest->lgK <= 26);
   U32 destMask = (((1 << dest->lgK) - 1) << 6) | 63;  // downsamples when destlgK < srcLgK
 
-  // Using a golden ratio stride fixes the slowplow effect.
+  // Using a golden ratio stride fixes the snowplow effect.
   double golden = 0.6180339887498949025;
   Long stride = (Long) (golden * ((double) numSlots));
   assert (stride >= 2);
@@ -282,7 +282,7 @@ FM85 * ug85GetResult (UG85 * unioner) {
 
   //  u32Table * table = u32TableMake (2, 6 + lgK); // dynamically growing caused snowplow effect
   Short newTableSize = lgK - 4; //   K/16; in some cases this will end up being oversized
-  if (newTableSize < 4) newTableSize = 4;
+  if (newTableSize < 2) newTableSize = 2;
   u32Table * table = u32TableMake (newTableSize, 6 + lgK); 
   assert (table != NULL);
   assert (result->surprisingValueTable == NULL);
