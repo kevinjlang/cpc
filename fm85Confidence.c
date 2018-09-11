@@ -1,37 +1,10 @@
 // Copyright 2018, Kevin Lang, Oath Research
 
-/*
-  This test of merging is less exhaustive than testAll.c, 
-  but is more practical for large values of K.
-
-  gcc -O3 -Wall -pedantic -o quickTestMerge u32Table.c fm85Util.c fm85.c iconEstimator.c fm85Compression.c fm85Merging.c fm85Testing.c quickTestMerge.c
-
-*/
-
 /*******************************************************/
 
 #include "common.h"
-// #include "fm85Util.h"
-// #include "u32Table.h"
 #include "fm85.h"
 #include "iconEstimator.h"
-// #include "fm85Compression.h"
-// #include "fm85Merging.h"
-
-/*******************************************************/
-// Note: the following empirical measurements were initially done at N = 100 * K,
-// which wasn't far enough out to get really close to asymptotic values like 0.6931.
-// We are currently re-running at N = 1000 * K, which the arxiv simulations show
-// is nearly far enough. For example, the file fast-12.plot shows:
-//    n / k             icon            HIP
-//  100.806152344	0.686538483709	0.580445401405
-// 1001.39941406	0.692138078763	0.587899629123
-
-//  BTW, the file icon-table-96-lg10 contains the lines
-//   7144	102396.779694706565351
-//  10546	1024210.113477294100448
-//  so when  n/k =  100, C/k ~=  6.9765625
-//  and when n/k = 1000, C/K ~= 10.298828125.
 
 /*******************************************************/
 // ln 2.0
