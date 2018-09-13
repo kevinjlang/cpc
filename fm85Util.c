@@ -182,14 +182,17 @@ Long golombChooseNumberOfBaseBits (Long k, Long count) {
 
 
 /*******************************************************/
-// A faster implementation of this (perhaps a byte-wise scheme)
-// might speed up merging, specifically getResult() in cases
-// where numCoupons is large.
+// This place-holder code was inadequate because it caused
+// the cost of the post-merge getResult() operation to be O(C)
+// instead of O(K). It did have the advantage of being
+// very simple and trustworthy during initial testing.
 
-Long countBitsSetInMatrix (U64 * array, Long length) {
+Long wegnerCountBitsSetInMatrix (U64 * array, Long length) {
   Long i = 0;
   U64 pattern = 0;
   Long count = 0;
+  //  clock_t t0, t1;
+  //  t0 = clock();
 // Wegner's Bit-Counting Algorithm, CACM 3 (1960), p. 322.
   for (i = 0; i < length; i++) {
     pattern = array[i];
@@ -198,7 +201,86 @@ Long countBitsSetInMatrix (U64 * array, Long length) {
       count++;
     }
   }
+  //  t1 = clock();
+  //  printf ("\n(Wegner CountBitsTime %.1f)\n", ((double) (t1 - t0)) / 1000.0);
+  //  fflush (stdout);
+
   return count;
 }
 
 /*******************************************************/
+// Note: this is an adaptation of the Java code that Lee sent me,
+// which is apparently a variation of Figure 5-2 in "Hacker's Delight"
+// by Henry S. Warren.
+
+static inline Long warrenBitCount(U64 i) {
+  i = i - ((i >> 1) & 0x5555555555555555ULL);
+  i = (i & 0x3333333333333333ULL) + ((i >> 2) & 0x3333333333333333ULL);
+  i = (i + (i >> 4)) & 0x0f0f0f0f0f0f0f0fULL;
+  i = i + (i >> 8);
+  i = i + (i >> 16);
+  i = i + (i >> 32);
+  return (Long)i & 0x7f;
+}
+
+Long warrenCountBitsSetInMatrix (U64 * array, Long length) {
+  Long i = 0;
+  Long count = 0;
+  //  clock_t t0, t1;
+  //  t0 = clock();
+  for (i = 0; i < length; i++) {
+    count += warrenBitCount(array[i]);
+  }
+  //  t1 = clock();
+  //  printf ("(Warren CountBitsTime %.1f)\n", ((double) (t1 - t0)) / 1000.0);
+  //  fflush (stdout);
+  return count;
+}
+
+/*******************************************************/
+// This code is Figure 5-9 in "Hacker's Delight" by Henry S. Warren.
+
+#define CSA(h,l,a,b,c) {U64 u = a^b; U64 v = c; h = (a&b) | (u&v); l = u^v;}
+
+Long countBitsSetInMatrix (U64 * A, Long length) {
+  assert ((length & 0x7) == 0); // the length of the array must be a multiple of 8.
+  //  clock_t t0, t1;
+  //  t0 = clock();
+  Long tot, i;
+  U64 ones, twos, twosA, twosB, fours, foursA, foursB, eights;
+  tot = 0;
+  fours = twos = ones = 0;
+
+  for (i = 0; i <= length - 8; i = i + 8) {
+    CSA(twosA, ones, ones, A[i+0], A[i+1]);
+    CSA(twosB, ones, ones, A[i+2], A[i+3]);
+    CSA(foursA, twos, twos, twosA, twosB);
+
+    CSA(twosA, ones, ones, A[i+4], A[i+5]);
+    CSA(twosB, ones, ones, A[i+6], A[i+7]);
+    CSA(foursB, twos, twos, twosA, twosB);
+
+    CSA(eights, fours, fours, foursA, foursB);
+
+    tot += warrenBitCount(eights);
+  }
+  tot = 8*tot + 4*warrenBitCount(fours) + 2*warrenBitCount(twos) + warrenBitCount(ones);
+
+  //  t1 = clock();
+  //  printf ("(CSA CountBitsTime %.1f)\n", ((double) (t1 - t0)) / 1000.0);
+  //  fflush (stdout);
+
+  // Because I still don't fully trust this fancy version.
+  assert(tot == wegnerCountBitsSetInMatrix(A, length));
+
+  return (tot);
+}
+
+/*********************************************/
+// Here are some timings made with quickTestMerge.c
+// for the "5 5" case:
+
+// Wegner CountBitsTime 29.3
+// Warren CountBitsTime  5.3
+// CSA    CountBitsTime  4.3
+
