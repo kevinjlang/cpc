@@ -83,7 +83,7 @@ double getIconConfidenceLB (FM85 * sketch, int kappa) {
   assert (lgK >= 4);
   assert (kappa >= 1 && kappa <= 3);
   double x = iconErrorConstant;
-  if (lgK < 14) x = ((double) iconHighSideData[3*(lgK-4) + (kappa-1)]) / 10000.0;
+  if (lgK <= 14) x = ((double) iconHighSideData[3*(lgK-4) + (kappa-1)]) / 10000.0;
   double rel = x / (sqrt((double) k));
   double eps = ((double) kappa) * rel;
   double est = getIconEstimate (lgK, sketch->numCoupons);
@@ -100,7 +100,7 @@ double getIconConfidenceUB (FM85 * sketch, int kappa) {
   assert (lgK >= 4);
   assert (kappa >= 1 && kappa <= 3);
   double x = iconErrorConstant;
-  if (lgK < 14) x = ((double) iconLowSideData[3*(lgK-4) + (kappa-1)]) / 10000.0;
+  if (lgK <= 14) x = ((double) iconLowSideData[3*(lgK-4) + (kappa-1)]) / 10000.0;
   double rel = x / (sqrt((double) k));
   double eps = ((double) kappa) * rel;
   double est = getIconEstimate (lgK, sketch->numCoupons);
@@ -117,7 +117,7 @@ double getHIPConfidenceLB (FM85 * sketch, int kappa) {
   assert (lgK >= 4);
   assert (kappa >= 1 && kappa <= 3);
   double x = hipErrorConstant;
-  if (lgK < 14) x = ((double) hipHighSideData[3*(lgK-4) + (kappa-1)]) / 10000.0;
+  if (lgK <= 14) x = ((double) hipHighSideData[3*(lgK-4) + (kappa-1)]) / 10000.0;
   double rel = x / (sqrt((double) k));
   double eps = ((double) kappa) * rel;
   double est = getHIPEstimate (sketch);
@@ -134,7 +134,7 @@ double getHIPConfidenceUB (FM85 * sketch, int kappa) {
   assert (lgK >= 4);
   assert (kappa >= 1 && kappa <= 3);
   double x = hipErrorConstant;
-  if (lgK < 14) x = ((double) hipLowSideData[3*(lgK-4) + (kappa-1)]) / 10000.0;
+  if (lgK <= 14) x = ((double) hipLowSideData[3*(lgK-4) + (kappa-1)]) / 10000.0;
   double rel = x / (sqrt((double) k));
   double eps = ((double) kappa) * rel;
   double est = getHIPEstimate (sketch);
