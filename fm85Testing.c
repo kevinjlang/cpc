@@ -103,6 +103,32 @@ void compareU64Arrays(U64 * arr1, U64 * arr2, Long arrlen) {
 
 /*******************************************************/
 /*******************************************************/
+
+// This procedure is only used for testing.
+// The actual sketch code calculates firstInterestingColumn
+// "on the side" while accomplishing something else.
+
+Short calculateFirstInterestingColumn (FM85 * self) {
+  Short offset = self->windowOffset;
+  if (offset == 0) return 0;
+  u32Table * table = self->surprisingValueTable;
+  assert (table != NULL);
+  U32 * slots = table->slots;
+  Long numSlots = (1LL << table->lgSize); 
+  Long i;
+  Short result = offset;
+  for (i = 0; i < numSlots; i++) { 
+    U32 rowCol = slots[i];
+    if (rowCol != ALL32BITS) {
+      Short col = (Short) (rowCol & 63);
+      if (col < result) { result = col; }
+    }
+  }
+  return(result);
+}
+
+/*******************************************************/
+/*******************************************************/
 // This is used for testing, especially of the merging code.
 
 void assertSketchesEqual (FM85 * sk1, FM85 * sk2, Boolean sk2WasMerged) {
@@ -148,10 +174,8 @@ void assertSketchesEqual (FM85 * sk1, FM85 * sk2, Boolean sk2WasMerged) {
   if (sk2WasMerged) {
     assert (sk1->mergeFlag == 0 && sk2->mergeFlag == 1);
     // firstInterestingColumn is only updated occasionally while stream processing.
-    // NB: While not very likely, it is possible for the difference to exceed 2.
-    assert (sk1->firstInterestingColumn + 0 == sk2->firstInterestingColumn || 
-	    sk1->firstInterestingColumn + 1 == sk2->firstInterestingColumn ||
-	    sk1->firstInterestingColumn + 2 == sk2->firstInterestingColumn);
+    // Therefore the merged sketch's value might be more up-to-date than that of the direct sketch.
+    assert (sk2->firstInterestingColumn == calculateFirstInterestingColumn (sk1));
   }
   else {
     assert (sk1->mergeFlag == sk2->mergeFlag);
