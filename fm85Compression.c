@@ -629,7 +629,7 @@ void compressHybridFlavor (FM85 * target, FM85 * source) {
   //  for (i = 0; i < source->numCoupons-1; i++) { assert (allPairs[i] < allPairs[i+1]); }
 
   compressTheSurprisingValues (target, source, allPairs, source->numCoupons);
-  free (pairsFromTable);
+  if (pairsFromTable != NULL) { free (pairsFromTable); } // this fixes the bug that Alex found
   free (allPairs);
   return;
 }
